@@ -6,12 +6,12 @@ from importlib.metadata import version
 
 from ..assemble import assemble
 from ..sse import parse_sse
-from . import FAIL, PASS, CheckResult, register
+from . import ERROR, FAIL, PASS, CheckResult, register
 
 
 @register("sdk_stream_compat", "sdk", "The official openai SDK stream helper assembles the same request without error")
 def sdk_stream_compat(ctx) -> CheckResult:
-    from openai import OpenAI
+    from openai import APIConnectionError, OpenAI
 
     sdk_version = version("openai")
     res = CheckResult("sdk_stream_compat", FAIL, sdk_version=sdk_version, scenarios=[])
@@ -25,6 +25,8 @@ def sdk_stream_compat(ctx) -> CheckResult:
             final = stream.get_final_completion()
     except Exception as err:  # noqa: BLE001 - any SDK failure is the finding
         res.reason = f"{type(err).__name__}: {err}"[:300]
+        if isinstance(err, APIConnectionError):  # includes APITimeoutError: not a verdict on the stream format
+            res.grade = ERROR
         # fetch the raw stream too: it is evidence, and tells whether a missing `index` is the cause
         raw = ctx.get("stream")
         res.scenarios = ["stream"]

@@ -7,8 +7,8 @@ import re
 from ..assemble import assemble
 from ..scenarios import TOOL_SCHEMAS
 from ..sse import parse_sse
-from . import FAIL, PASS, SKIP, CheckResult, register
-from .common import http_problem, message_of, validate_args
+from . import ERROR, FAIL, PASS, SKIP, CheckResult, register
+from .common import http_problem, message_of, reject_problem, transport_error, validate_args
 
 LEAK_PATTERNS = [
     ("<tool_call>", re.compile(r"<tool_call>")),
@@ -23,8 +23,7 @@ LEAK_PATTERNS = [
 def nonstream_basic(ctx) -> CheckResult:
     ex = ctx.get("basic")
     res = CheckResult("nonstream_basic", FAIL, scenarios=["basic"])
-    if problem := http_problem(ex):
-        res.reason = problem
+    if reject_problem(res, ex):
         return res
     got = message_of(ex)
     if got is None:
@@ -70,6 +69,8 @@ def content_leak(ctx) -> CheckResult:
     if not http_problem(stream):
         texts["stream"] = assemble(parse_sse(stream.sse_lines).chunks).content
     if not texts:
+        if problem := transport_error(basic, stream):
+            return CheckResult("content_leak", ERROR, problem, scenarios=res.scenarios)
         return CheckResult("content_leak", SKIP, "no usable response to inspect", scenarios=res.scenarios)
     for where, text in texts.items():
         for label, pattern in LEAK_PATTERNS:
@@ -99,6 +100,8 @@ def args_schema(ctx) -> CheckResult:
             if problem := validate_args(call.name, call.arguments):
                 return CheckResult("args_schema", FAIL, f"stream: {problem}", scenarios=res.scenarios)
     if not checked:
+        if (problem := transport_error(basic, stream)) and not message_of(basic):
+            return CheckResult("args_schema", ERROR, problem, scenarios=res.scenarios)
         return CheckResult("args_schema", SKIP, "no tool calls to validate", scenarios=res.scenarios)
     res.info = {"validated_calls": checked}
     return res
@@ -108,8 +111,7 @@ def args_schema(ctx) -> CheckResult:
 def stream_assembly(ctx) -> CheckResult:
     ex = ctx.get("stream")
     res = CheckResult("stream_assembly", FAIL, scenarios=["stream"])
-    if problem := http_problem(ex):
-        res.reason = problem
+    if reject_problem(res, ex):
         return res
     parsed = parse_sse(ex.sse_lines)
     if not parsed.chunks:
@@ -144,8 +146,8 @@ def stream_assembly(ctx) -> CheckResult:
 def stream_terminator(ctx) -> CheckResult:
     ex = ctx.get("stream")
     res = CheckResult("stream_terminator", FAIL, scenarios=["stream"])
-    if problem := http_problem(ex):
-        res.reason = problem
+    if reject_problem(res, ex):
+        pass
     elif not parse_sse(ex.sse_lines).done:
         res.reason = "stream ended without `data: [DONE]`"
     else:
@@ -157,8 +159,7 @@ def stream_terminator(ctx) -> CheckResult:
 def roundtrip(ctx) -> CheckResult:
     ex = ctx.get("roundtrip")
     res = CheckResult("roundtrip", FAIL, scenarios=["roundtrip"])
-    if problem := http_problem(ex):
-        res.reason = problem
+    if reject_problem(res, ex):
         return res
     got = message_of(ex)
     if got is None:

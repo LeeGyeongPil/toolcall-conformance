@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from . import FAIL, PASS, WARN, CheckResult, register
-from .common import http_problem, message_of
+from .common import message_of, reject_problem
 
 
 def _calls(ex) -> list[dict] | None:
@@ -16,8 +16,7 @@ def _rejected(res: CheckResult, ex) -> CheckResult | None:
     if 400 <= ex.status < 500:
         res.grade, res.reason = WARN, f"server rejected the option (HTTP {ex.status}): {ex.text.strip()[:120]}"
         return res
-    if problem := http_problem(ex):
-        res.reason = problem
+    if reject_problem(res, ex):
         return res
     if _calls(ex) is None:
         res.reason = "response has no choices[0].message"

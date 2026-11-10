@@ -105,7 +105,7 @@ def run_targets(
             tr = TargetResult(target)
             for spec in checks:
                 prior = done.get((target.name, spec.id))
-                if prior:  # already recorded: skip without sending a request
+                if prior and prior["grade"] != ERROR:  # recorded: skip without a request (ERROR is retried)
                     tr.results.append(CheckResult(spec.id, prior["grade"], prior["reason"], prior.get("info") or {},
                                                   sdk_version=prior.get("sdk_version") or ""))
                     target.mock = target.mock or bool(prior["target"].get("mock"))

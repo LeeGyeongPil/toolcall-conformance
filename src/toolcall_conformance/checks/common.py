@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from ..client import Exchange
+from . import ERROR
 from ..scenarios import TOOL_SCHEMAS
 
 _TYPES: dict[str, tuple[type, ...]] = {
@@ -21,6 +22,26 @@ def http_problem(ex: Exchange) -> str:
     if ex.status != 200:
         return f"HTTP {ex.status}: {ex.text.strip()[:160]}"
     return ""
+
+
+def transport_error(*exchanges: Exchange) -> str:
+    """First timeout/connection problem among ``exchanges`` (``Exchange.error``), else ''."""
+    return next((ex.error for ex in exchanges if ex.error), "")
+
+
+def reject_problem(res, ex: Exchange) -> bool:
+    """If ``ex`` has no usable 200, record the reason on ``res`` and return True.
+
+    A timeout or broken connection is not a verdict about the server's wire format, so it
+    grades ERROR; an HTTP error status keeps the grade the caller started with.
+    """
+    problem = http_problem(ex)
+    if not problem:
+        return False
+    res.reason = problem
+    if transport_error(ex):
+        res.grade = ERROR
+    return True
 
 
 def message_of(ex: Exchange) -> tuple[dict[str, Any], str | None] | None:
