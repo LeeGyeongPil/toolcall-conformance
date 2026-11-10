@@ -1,0 +1,28 @@
+[project]
+name = "toolcall-conformance"
+version = "0.1.0"
+description = "Check how an OpenAI-compatible server (Ollama, llama.cpp, vLLM, LM Studio, LiteLLM...) handles tool calls on the wire."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+keywords = ["openai", "tool-calling", "function-calling", "conformance", "llm", "sse"]
+classifiers = [
+  "Environment :: Console",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = ["openai==3.48.0"]
+
+[project.scripts]
+toolcall-conformance = "toolcall_conformance.cli:main"
+
+[dependency-groups]
+dev = ["pytest==9.2.0"]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
