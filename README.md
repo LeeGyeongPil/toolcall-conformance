@@ -27,7 +27,7 @@ uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-con
 uv tool install git+https://github.com/LeeGyeongPil/toolcall-conformance
 toolcall-conformance --version
 ```
-PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.1.0` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
+PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.1.1` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
 
 레포를 받아 쓰려면:
 ```bash
@@ -43,6 +43,7 @@ uv run toolcall-conformance demo
 ```
 [mock] Practice results from the built-in mock server - not results from a real server. (연습용 목(mock) 서버 결과입니다 - 실제 서버 결과가 아닙니다)
 target               basic  leak  args  stream  done  sdk   none  req   named  para  trip
+-----------------------------------------------------------------------------------------
 good                 PASS   PASS  PASS  PASS    PASS  PASS  PASS  PASS  PASS   PASS  PASS
 no_index             PASS   PASS  PASS  FAIL    PASS  FAIL  PASS  PASS  PASS   PASS  PASS
 content_leak         FAIL   FAIL  SKIP  FAIL    PASS  FAIL  PASS  FAIL  FAIL   FAIL  PASS
@@ -67,7 +68,7 @@ ollama_like          PASS   PASS  PASS  PASS    PASS  PASS  FAIL  FAIL  FAIL   P
 | `run --targets FILE` | 여러 서버·모델 비교(TOML) | `run --targets examples/targets.toml --format md` |
 | `--only a,b` | 지정한 검사만 | `--only stream_assembly,roundtrip` |
 | `--out DIR 또는 파일.jsonl` | 검사마다 요청·응답 원문을 JSONL 로 즉시 저장 | `--out runs/` |
-| `--resume` | `--out` 파일에 이미 있는 (대상, 검사)는 건너뜀 | `--out runs/ --resume` |
+| `--resume` | `--out` 파일에 이미 있는 (대상, 검사)는 건너뜀. `ERROR` 로 기록된 것은 다시 실행 | `--out runs/ --resume` |
 | `--format text/md/json` | 출력 형식 | `--format md > report.md` |
 | `--timeout 초` | 요청당 제한(기본 180) | `--timeout 300` |
 | `--api-key-env 이름` | API 키가 든 **환경변수 이름** | `--api-key-env TOOLCALL_API_KEY` |
@@ -135,7 +136,9 @@ toolcall-conformance run --targets examples/targets.toml --format md > report.md
 | para | `parallel_calls` | 독립 요청 두 개에 호출 두 개(하나면 WARN) |
 | trip | `roundtrip` | 도구 결과(`tool` 역할, `tool_call_id`)를 되먹임하고 최종 답이 오는지 |
 
-등급: `PASS`, `WARN`(합법이지만 알아 둘 것), `FAIL`, `SKIP`(판정할 것 없음), `ERROR`(검사 자체 오류·타임아웃). **한 번의 결과는 단서이지 판결이 아닙니다.** 온도 0이어도 모델은 완전히 결정적이지 않고, 결과는 서버 버전·옵션·모델 조합의 것입니다.
+표 칸에서는 `ERROR` 가 `ERR` 로 줄여 찍힙니다.
+
+등급: `PASS`, `WARN`(합법이지만 알아 둘 것), `FAIL`, `SKIP`(판정할 것 없음), `ERROR`(검사 자체 오류, 타임아웃·연결 끊김 포함). **한 번의 결과는 단서이지 판결이 아닙니다.** 온도 0이어도 모델은 완전히 결정적이지 않고, 결과는 서버 버전·옵션·모델 조합의 것입니다.
 
 ## 설정
 - 기본은 키가 필요 없습니다. 호스팅 서비스처럼 키가 필요한 곳만 `--api-key-env 이름`(또는 `targets.toml` 의 `api_key_env`)으로 **환경변수 이름**을 줍니다. 값은 화면·JSONL·오류 메시지 어디에도 남지 않습니다. [.env.example](.env.example) 에 이름만 있습니다.
@@ -207,7 +210,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 | 증상 | 원인 | 해결 |
 |---|---|---|
 | `error: cannot connect to ... Connection refused` 와 종료 코드 2 | 서버가 안 떠 있거나 주소·포트가 틀림 | 서버 실행 확인, `--base-url` 이 `/v1` 까지 포함하는지 확인 |
-| 모든 검사가 느리거나 `ERROR`(타임아웃) | 첫 모델 로드 지연, 공유 GPU | `--timeout 300`, `--only` 로 줄이기, 중간에 끊겼다면 `--resume` |
+| 모든 검사가 느리거나 `ERROR`(타임아웃) | 첫 모델 로드 지연, 공유 GPU | `--timeout 300`, `--only` 로 줄이기, 중간에 끊겼다면 `--resume`(같은 `--out` 이면 `ERROR` 만 다시 실행) |
 | `leak` 만 FAIL | 서버 파서 설정 누락(llama-server `--jinja`, vLLM 도구 파서 옵션) | 서버 옵션 확인 후 재실행 |
 | `none` 이 FAIL | 서버가 `tool_choice` 를 구현하지 않음(Ollama 문서에도 미지원으로 표기) | 서버 한계로 받아들이거나 서버 교체 |
 | `para` 가 WARN | 모델·서버 기본값이 한 번에 하나씩 호출 | 정상 범위. 병렬이 꼭 필요하면 모델 교체 |
@@ -218,9 +221,11 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## 개발·기여
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 36 passed, 키·네트워크 불필요
+uv run pytest -q    # 61 passed, 키·네트워크 불필요
 ```
 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
+
+알려진 한계: `nonstream_basic` 은 정상인데 스트림만 끊긴 경우, `args_schema` 의 `SKIP` 은 `--resume` 으로 다시 실행되지 않습니다(`ERROR` 만 재실행).
 
 한계와 계획: 이번 버전은 `--repeat`(n회 중 k회 집계), JSONL 재렌더 명령, 서버 메타 수집이 없습니다. Chat Completions 형식만 다루며 Responses API 등 다른 API 형식·구조화 출력은 범위 밖입니다.
 

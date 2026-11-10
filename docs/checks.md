@@ -2,7 +2,7 @@
 
 Every check sends fixed tools (`get_weather(city)`, `get_time(timezone)`) at temperature 0 and judges the
 **wire format**, not the model's accuracy. Requests are shared between checks, so a full run needs about
-8 requests. Grades: `PASS`, `WARN` (legal but worth knowing), `FAIL`, `SKIP` (nothing to judge), `ERROR` (check crashed or timed out).
+8 requests. Grades: `PASS`, `WARN` (legal but worth knowing), `FAIL`, `SKIP` (nothing to judge), `ERROR` (check crashed, timed out or the connection broke).
 One run is a clue, not a verdict: models are not fully deterministic even at temperature 0.
 
 | Check | What it looks at | FAIL when | Usual causes |

@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
+### Fixed
+- Timeouts and broken connections (`Exchange.error`, and the SDK's `APIConnectionError`/`APITimeoutError`) are now graded `ERROR` instead of `FAIL`, as documented. A slow server no longer looks like a wire-format violation. `content_leak` and `args_schema` also report `ERROR` (not `SKIP`) when a transport problem is why they had nothing to inspect. HTTP error statuses are unchanged (`FAIL`, or `WARN` for 4xx on `tool_choice`/parallel). Exit codes are unchanged.
+- `--resume` now re-runs pairs recorded as `ERROR` and appends the new result; `PASS`/`WARN`/`FAIL`/`SKIP` records are still skipped. This resolves the 0.1.0 limitation about `--resume` and `ERROR`.
+
+### Known limitations
+- If `nonstream_basic` succeeds but only the stream is cut off, the resulting `args_schema` `SKIP` is not re-run by `--resume`.
+
 ## [0.1.0] - 2026-11-10
 
 ### Added
