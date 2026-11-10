@@ -1,6 +1,10 @@
 """AC-1 and AC-7 .. AC-10, plus input-validation paths."""
 
+import contextlib
 import json
+import socket
+import struct
+import threading
 import time
 
 import pytest
@@ -147,4 +151,61 @@ def test_timeout_is_error_not_crash(capsys):
             c.close()
         srv.close()
     assert code == 1
-    assert "timed out" in json.loads(out)["targets"][0]["results"][0]["reason"]
+    data = json.loads(out)
+    assert data["failed"] is True
+    first = data["targets"][0]["results"][0]
+    assert "timed out" in first["reason"]
+    assert first["grade"] == "ERROR"  # a slow server is not a spec violation
+
+
+@contextlib.contextmanager
+def _silent_server(reset: bool = False):
+    """Loopback server on a free port: accepts, then stays silent (or resets the connection)."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+    held: list[socket.socket] = []
+    stop = threading.Event()
+
+    def accept():
+        srv.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                conn = srv.accept()[0]
+            except OSError:
+                continue
+            if reset:
+                conn.recv(65536)  # take the request, then close with RST
+                conn.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+                conn.close()
+            else:
+                held.append(conn)
+
+    t = threading.Thread(target=accept, daemon=True)
+    t.start()
+    try:
+        yield f"http://127.0.0.1:{srv.getsockname()[1]}/v1"
+    finally:
+        stop.set()
+        t.join(timeout=2)
+        for c in held:
+            c.close()
+        srv.close()
+
+
+def test_timeout_text_report_says_error(capsys):
+    with _silent_server() as url:
+        code, out, _ = run(capsys, "run", "--base-url", url, "--model", "m", "--timeout", "0.5",
+                           "--only", "nonstream_basic")
+    assert code == 1
+    assert "ERR" in out and "nonstream_basic: ERROR: timed out after 0.5s" in out
+    assert "Summary: ERROR=1" in out and "FAIL" not in out
+
+
+def test_connection_reset_is_error(capsys):
+    with _silent_server(reset=True) as url:
+        code, out, _ = run(capsys, "run", "--base-url", url, "--model", "m", "--timeout", "2",
+                           "--only", "nonstream_basic", "--format", "json")
+    assert code == 1
+    res = json.loads(out)["targets"][0]["results"][0]
+    assert res["grade"] == "ERROR" and "transport error" in res["reason"]

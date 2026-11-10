@@ -64,3 +64,107 @@ def test_good_row_has_no_problems(matrix):
 def test_every_mode_has_all_eleven_checks(matrix):
     assert len(matrix) == 9
     assert all(len(row) == 11 for row in matrix.values())
+
+
+# --- transport problems are ERROR, HTTP/format problems stay FAIL ---------------------------
+
+import json as _json
+
+import pytest
+
+from toolcall_conformance.checks import all_checks
+from toolcall_conformance.client import Exchange
+from toolcall_conformance.runner import run_targets
+from toolcall_conformance.targets import Target
+
+_HTTP_CHECKS = ["nonstream_basic", "stream_assembly", "stream_terminator", "tool_choice_none",
+                "tool_choice_required", "tool_choice_named", "parallel_calls", "roundtrip"]
+
+
+class _FakeContext:
+    """Answers every scenario with the same canned Exchange (no network)."""
+
+    def __init__(self, ex: Exchange) -> None:
+        self._ex = ex
+
+    def get(self, scenario: str) -> Exchange:
+        return self._ex
+
+
+def _check(check_id: str):
+    return next(c for c in all_checks() if c.id == check_id)
+
+
+@pytest.mark.parametrize("check_id", _HTTP_CHECKS + ["content_leak", "args_schema"])
+def test_transport_error_grades_error(check_id):
+    res = _check(check_id).fn(_FakeContext(Exchange("x", {}, error="timed out after 1s")))
+    assert res.grade == "ERROR" and "timed out after 1s" in res.reason
+
+
+@pytest.mark.parametrize("check_id", _HTTP_CHECKS)
+def test_http_500_stays_fail(check_id):
+    res = _check(check_id).fn(_FakeContext(Exchange("x", {}, status=500, text="oops")))
+    assert res.grade == "FAIL" and "HTTP 500" in res.reason
+
+
+@pytest.mark.parametrize("check_id", ["content_leak", "args_schema"])
+def test_http_500_still_skips_text_checks(check_id):
+    res = _check(check_id).fn(_FakeContext(Exchange("x", {}, status=500, text="oops")))
+    assert res.grade == "SKIP"
+
+
+def test_tool_choice_4xx_still_warns():
+    res = _check("tool_choice_none").fn(_FakeContext(Exchange("x", {}, status=400, text="no")))
+    assert res.grade == "WARN"
+
+
+def test_sdk_timeout_grades_error():
+    import socket
+    import threading
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+    held, stop = [], threading.Event()
+
+    def accept():
+        srv.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                held.append(srv.accept()[0])
+            except OSError:
+                continue
+
+    t = threading.Thread(target=accept, daemon=True)
+    t.start()
+    try:
+        target = Target(name="slow", base_url=f"http://127.0.0.1:{srv.getsockname()[1]}/v1", model="m")
+        results = run_targets([target], [_check("sdk_stream_compat")], timeout=0.5)
+    finally:
+        stop.set()
+        t.join(timeout=2)
+        for c in held:
+            c.close()
+        srv.close()
+    res = results[0].results[0]
+    assert res.grade == "ERROR" and res.info["exception"] == "APITimeoutError"
+
+
+def test_resume_reruns_error_but_keeps_other_grades(server, tmp_path):
+    out = tmp_path / "r.jsonl"
+    target = Target(name="t", base_url=server.url("good"), model="mock")
+
+    def line(check, grade):
+        return _json.dumps({"target": {"name": "t", "mock": True}, "check": check, "grade": grade,
+                            "reason": "earlier", "info": {}})
+
+    out.write_text(line("nonstream_basic", "ERROR") + "\n" + line("roundtrip", "FAIL") + "\n", encoding="utf-8")
+    specs = [_check("nonstream_basic"), _check("roundtrip")]
+    before = server.request_count
+    results = run_targets([target], specs, timeout=30, out_path=out, resume=True)
+    by = {r.check: r for r in results[0].results}
+    assert by["nonstream_basic"].grade == "PASS"
+    assert by["roundtrip"].grade == "FAIL" and by["roundtrip"].reason == "earlier"
+    assert server.request_count > before
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 3 and _json.loads(lines[-1])["grade"] == "PASS"
