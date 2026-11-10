@@ -1,0 +1,29 @@
+# Example target list:  toolcall-conformance run --targets examples/targets.toml --format md
+# Start only the servers you have; remove the other tables.
+# `notes` is free text (server flags, versions) kept in the JSONL record.
+
+[[target]]
+name = "ollama-direct"
+base_url = "http://localhost:11434/v1"
+model = "qwen3:4b"
+notes = "Ollama default settings; tool_choice is documented as unsupported"
+
+[[target]]
+name = "llama-server"
+base_url = "http://localhost:8080/v1"
+model = "any"
+notes = "llama-server --jinja -m model.gguf  (--jinja is required for native tool calls)"
+
+[[target]]
+name = "vllm"
+base_url = "http://localhost:8000/v1"
+model = "Qwen/Qwen2.5-7B-Instruct"
+notes = "vllm serve ... --enable-auto-tool-choice --tool-call-parser hermes"
+
+[[target]]
+name = "litellm-proxy-to-ollama"
+base_url = "http://localhost:4000/v1"
+model = "ollama-qwen3"
+api_key_env = "TOOLCALL_API_KEY"   # name of an environment variable, not the key itself
+notes = "Same model as ollama-direct, through the proxy: compare the two rows"
+# headers = { "X-Example" = "value" }
