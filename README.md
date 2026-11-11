@@ -75,7 +75,7 @@ ollama_like          PASS   PASS  PASS  PASS    PASS  PASS  FAIL  FAIL  FAIL   P
 | `mock [--port N]` | 목 서버를 띄워 둠(Ctrl-C 로 종료) | `mock --port 8089` |
 | `list` | 검사 항목과 목 모드 설명 | `toolcall-conformance list` |
 
-종료 코드: `0` 모든 검사 통과(FAIL·ERROR 없음), `1` FAIL 또는 ERROR 있음, `2` 사용법 오류·서버 연결 실패. (`demo` 는 `good` 모드만 판정에 씁니다.)
+종료 코드: `0` 모든 검사 통과(FAIL·ERROR 없음), `1` FAIL 또는 ERROR 있음, `2` 사용법 오류·서버 연결 거부·주소 해석(DNS) 실패(접속 후 끊김·타임아웃은 `ERROR` 로 기록되어 종료 코드 1). (`demo` 는 `good` 모드만 판정에 씁니다.)
 
 ### 시나리오 1: 내 Ollama 검사
 ```bash
@@ -221,7 +221,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## 개발·기여
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 61 passed, 키·네트워크 불필요
+uv run pytest -q    # 63 passed, 키·네트워크 불필요
 ```
 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
 

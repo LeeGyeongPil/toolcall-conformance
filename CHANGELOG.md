@@ -8,11 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [0.1.1] - 2026-11-11
 
 ### Fixed
-- Timeouts and broken connections (`Exchange.error`, and the SDK's `APIConnectionError`/`APITimeoutError`) are now graded `ERROR` instead of `FAIL`, as documented. A slow server no longer looks like a wire-format violation. `content_leak` and `args_schema` also report `ERROR` (not `SKIP`) when a transport problem is why they had nothing to inspect. HTTP error statuses are unchanged (`FAIL`, or `WARN` for 4xx on `tool_choice`/parallel). Exit codes are unchanged.
+- Timeouts and broken connections (`Exchange.error`, and the SDK's `APIConnectionError`/`APITimeoutError`) are now graded `ERROR` instead of `FAIL`, as documented. A slow server no longer looks like a wire-format violation. `content_leak` and `args_schema` also report `ERROR` (not `SKIP`) when a transport problem is why they had nothing to inspect. HTTP error statuses are unchanged (`FAIL`, or `WARN` for 4xx on `tool_choice`/parallel). A connection that is reset after it was established now yields `ERROR` (exit code 1) instead of aborting with exit code 2; exit 2 remains for usage errors and for refused or unresolvable servers.
 - `--resume` now re-runs pairs recorded as `ERROR` and appends the new result; `PASS`/`WARN`/`FAIL`/`SKIP` records are still skipped. This resolves the 0.1.0 limitation about `--resume` and `ERROR`.
 
 ### Known limitations
 - If `nonstream_basic` succeeds but only the stream is cut off, the resulting `args_schema` `SKIP` is not re-run by `--resume`.
+- Mid-transfer socket resets are covered by unit tests with a faked transport, not by a real-socket test.
+- The demo mock server may print a BrokenPipe message on stderr when a client disconnects early.
+- If every target refuses the connection the run stops; the "first server" wording in the README only describes the probing order.
 
 ## [0.1.0] - 2026-11-10
 
