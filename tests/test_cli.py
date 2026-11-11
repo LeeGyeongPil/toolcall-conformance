@@ -115,6 +115,29 @@ def test_usage_errors_exit2_with_fix_hint(capsys, argv, message, monkeypatch):
     assert code == 2 and message in err and "Traceback" not in err
 
 
+@pytest.mark.parametrize("only", [",", "   ", " , ,", ""])
+@pytest.mark.parametrize("fmt", ["text", "json", "md"])
+def test_only_without_check_ids_exit2(capsys, only, fmt):
+    """`--only` that names no check (empty, commas, spaces) is a usage error, not a silent empty pass."""
+    code, out, err = run(capsys, "run", "--base-url", "http://127.0.0.1:1/v1", "--model", "m",
+                         "--only", only, "--format", fmt)
+    assert code == 2 and out == ""
+    assert "--only has no check ids" in err and "Valid ids" in err and "Traceback" not in err
+
+
+def test_only_mixed_valid_and_unknown_exit2(capsys):
+    code, out, err = run(capsys, "run", "--base-url", "http://127.0.0.1:1/v1", "--model", "m",
+                         "--only", "roundtrip,nope")
+    assert code == 2 and out == "" and "unknown check id(s): nope" in err
+
+
+def test_only_tolerates_spaces_and_extra_commas(capsys, server):
+    code, out, _ = run(capsys, "run", "--base-url", server.url("good"), "--model", "mock",
+                       "--only", "roundtrip, ,stream_terminator,", "--format", "json")
+    assert code == 0
+    assert sorted({r["check"] for t in json.loads(out)["targets"] for r in t["results"]}) == ["roundtrip", "stream_terminator"]
+
+
 def test_list_command(capsys):
     code, out, _ = run(capsys, "list")
     assert code == 0 and "sdk_stream_compat" in out and "ollama_like" in out
