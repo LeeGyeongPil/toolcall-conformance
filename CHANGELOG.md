@@ -3,7 +3,13 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.2] - 2026-11-11
+
+### Fixed
+- `run --only` with no check ids (an empty value, commas or spaces only, e.g. an unset CI variable) now fails with `error: --only has no check ids (...)` and exit code 2 instead of running zero checks and exiting 0 with an empty table. This resolves the 0.1.0 limitation about `--only ','`. Omitting `--only` still runs all 11 checks. Behavior change: `--only ''` used to run all checks; it is now a usage error.
+
+### Documentation
+- README: the `--only` row and the troubleshooting table now also cover unknown check ids (`error: unknown check id(s)`, exit code 2).
 
 ## [0.1.1] - 2026-11-11
 
