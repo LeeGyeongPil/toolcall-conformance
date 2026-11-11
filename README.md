@@ -1,5 +1,7 @@
 # toolcall-conformance
 
+**한국어** | [English](README.en.md)
+
 > **English summary** — A command-line checker that sends fixed tool-calling requests to an OpenAI-compatible server (Ollama, llama.cpp, vLLM, LM Studio, LiteLLM...) and reports, check by check, where the wire format deviates: content leaks, missing stream `index`, ignored `tool_choice`, broken round trips. Use it when an agent "stops calling tools" or after you change a server, model or proxy. Try it with no key and no GPU: `uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-conformance demo` (the demo uses a built-in **practice mock server**, not a real one).
 
 에이전트가 도구를 갑자기 안 쓰거나 `<tool_call>` 글자를 그냥 뱉을 때, 원인이 서버 파서인지·모델 템플릿인지·클라이언트 SDK인지 손으로 SSE를 읽지 않고 명령 하나로 가려 줍니다.
