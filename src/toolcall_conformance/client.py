@@ -6,6 +6,7 @@ be reproduced from the JSONL record.
 
 from __future__ import annotations
 
+import http.client
 import json
 import socket
 import urllib.error
@@ -86,6 +87,10 @@ def post_chat(
     except urllib.error.URLError as err:
         if isinstance(err.reason, (socket.timeout, TimeoutError)):
             ex.error = f"timed out after {timeout:g}s"
+        elif isinstance(err.reason, _DROPPED):
+            # The peer accepted the connection and then dropped it (urllib wraps errors raised
+            # while sending the request in URLError; Linux often reports the reset there).
+            ex.error = f"transport error: {err.reason}"
         else:
             raise ConnectError(f"cannot connect to {url}: {err.reason}") from err
     except (socket.timeout, TimeoutError):
@@ -93,6 +98,10 @@ def post_chat(
     except OSError as err:
         ex.error = f"transport error: {err}"
     return ex
+
+
+# Errors that mean "connected, then the peer cut us off" (a refused connection is not one of them).
+_DROPPED = (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, http.client.RemoteDisconnected)
 
 
 def _read_body(resp: Any, ex: Exchange, stream: bool) -> None:

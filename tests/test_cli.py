@@ -158,6 +158,30 @@ def test_timeout_is_error_not_crash(capsys):
     assert first["grade"] == "ERROR"  # a slow server is not a spec violation
 
 
+def _read_request(conn: socket.socket) -> None:
+    """Read one HTTP request completely (headers + Content-Length body); the client may send in pieces."""
+    conn.settimeout(5)
+    buf = b""
+    try:
+        while b"\r\n\r\n" not in buf:
+            chunk = conn.recv(65536)
+            if not chunk:
+                return
+            buf += chunk
+        head, _, body = buf.partition(b"\r\n\r\n")
+        want = 0
+        for line in head.split(b"\r\n"):
+            if line.lower().startswith(b"content-length:"):
+                want = int(line.split(b":", 1)[1])
+        while len(body) < want:
+            chunk = conn.recv(65536)
+            if not chunk:
+                return
+            body += chunk
+    except OSError:
+        return
+
+
 @contextlib.contextmanager
 def _silent_server(reset: bool = False):
     """Loopback server on a free port: accepts, then stays silent (or resets the connection)."""
@@ -175,7 +199,7 @@ def _silent_server(reset: bool = False):
             except OSError:
                 continue
             if reset:
-                conn.recv(65536)  # take the request, then close with RST
+                _read_request(conn)  # take the whole request, then close with RST
                 conn.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
                 conn.close()
             else:

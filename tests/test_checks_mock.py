@@ -168,3 +168,19 @@ def test_resume_reruns_error_but_keeps_other_grades(server, tmp_path):
     assert server.request_count > before
     lines = out.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 3 and _json.loads(lines[-1])["grade"] == "PASS"
+
+
+@pytest.mark.parametrize("exc", [BrokenPipeError("pipe"), ConnectionResetError("reset")])
+def test_drop_while_sending_is_transport_error(monkeypatch, exc):
+    """Linux reports a peer reset while sending as URLError; it must still grade ERROR, not abort."""
+    import urllib.error
+    import urllib.request
+
+    from toolcall_conformance import client
+
+    def boom(*a, **k):
+        raise urllib.error.URLError(exc)
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    ex = client.post_chat("http://127.0.0.1:9/v1", {}, "s", timeout=1)
+    assert ex.error.startswith("transport error")
