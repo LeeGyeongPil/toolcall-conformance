@@ -27,7 +27,7 @@ uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-con
 uv tool install git+https://github.com/LeeGyeongPil/toolcall-conformance
 toolcall-conformance --version
 ```
-PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.1.1` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
+PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.1.2` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
 
 레포를 받아 쓰려면:
 ```bash
@@ -66,7 +66,7 @@ ollama_like          PASS   PASS  PASS  PASS    PASS  PASS  FAIL  FAIL  FAIL   P
 | `demo` | 목 서버 9모드 x 11검사 표 | `toolcall-conformance demo` |
 | `run --base-url URL --model NAME` | 내 서버 한 곳 검사 | `run --base-url http://localhost:11434/v1 --model qwen3:4b` |
 | `run --targets FILE` | 여러 서버·모델 비교(TOML) | `run --targets examples/targets.toml --format md` |
-| `--only a,b` | 지정한 검사만 | `--only stream_assembly,roundtrip` |
+| `--only a,b` | 지정한 검사만. 값이 비었거나(빈 값·쉼표만) 모르는 검사 이름이 하나라도 섞이면 종료 코드 2 | `--only stream_assembly,roundtrip` |
 | `--out DIR 또는 파일.jsonl` | 검사마다 요청·응답 원문을 JSONL 로 즉시 저장 | `--out runs/` |
 | `--resume` | `--out` 파일에 이미 있는 (대상, 검사)는 건너뜀. `ERROR` 로 기록된 것은 다시 실행 | `--out runs/ --resume` |
 | `--format text/md/json` | 출력 형식 | `--format md > report.md` |
@@ -211,6 +211,8 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 |---|---|---|
 | `error: cannot connect to ... Connection refused` 와 종료 코드 2 | 서버가 안 떠 있거나 주소·포트가 틀림 | 서버 실행 확인, `--base-url` 이 `/v1` 까지 포함하는지 확인 |
 | 모든 검사가 느리거나 `ERROR`(타임아웃) | 첫 모델 로드 지연, 공유 GPU | `--timeout 300`, `--only` 로 줄이기, 중간에 끊겼다면 `--resume`(같은 `--out` 이면 `ERROR` 만 다시 실행) |
+| `error: --only has no check ids` 와 종료 코드 2 | `--only` 값이 비었음(CI 변수 치환이 비었거나 쉼표만 남음) | 변수 값 확인. 전체를 돌리려면 `--only` 를 빼기 |
+| `error: unknown check id(s): ...` 와 종료 코드 2 | `--only` 에 없는 검사 이름이 섞임(오타. 유효한 이름과 함께여도 마찬가지) | `toolcall-conformance list` 로 이름 확인 |
 | `leak` 만 FAIL | 서버 파서 설정 누락(llama-server `--jinja`, vLLM 도구 파서 옵션) | 서버 옵션 확인 후 재실행 |
 | `none` 이 FAIL | 서버가 `tool_choice` 를 구현하지 않음(Ollama 문서에도 미지원으로 표기) | 서버 한계로 받아들이거나 서버 교체 |
 | `para` 가 WARN | 모델·서버 기본값이 한 번에 하나씩 호출 | 정상 범위. 병렬이 꼭 필요하면 모델 교체 |
@@ -221,7 +223,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## 개발·기여
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 63 passed, 키·네트워크 불필요
+uv run pytest -q    # 77 passed, 키·네트워크 불필요
 ```
 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
 
