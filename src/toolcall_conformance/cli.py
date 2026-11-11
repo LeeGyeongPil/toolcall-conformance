@@ -39,7 +39,7 @@ def _parser() -> argparse.ArgumentParser:
     r.add_argument("--name", help="label used in the table (default: the base URL)")
     r.add_argument("--targets", help="TOML file with [[target]] tables (see examples/targets.toml)")
     r.add_argument("--api-key-env", default="", help="NAME of an environment variable holding the API key (the value is never recorded)")
-    r.add_argument("--only", help="comma-separated check ids (see `list`)")
+    r.add_argument("--only", help="comma-separated check ids (see `list`); at least one id is required")
     r.add_argument("--out", help="write JSONL evidence here (a directory gets results.jsonl; or a .jsonl path)")
     r.add_argument("--resume", action="store_true", help="with --out: skip (target, check) pairs already recorded")
 
@@ -53,10 +53,13 @@ def _parser() -> argparse.ArgumentParser:
 
 def _select_checks(only: str | None) -> list[CheckSpec]:
     checks = all_checks()
-    if not only:
+    if only is None:
         return checks
     wanted = [x.strip() for x in only.split(",") if x.strip()]
     known = {c.id for c in checks}
+    if not wanted:
+        # Empty value, commas or spaces only (e.g. an unset CI variable): refuse instead of running nothing.
+        raise TargetsError(f"--only has no check ids (got {only!r}). Valid ids: {', '.join(sorted(known))}")
     unknown = [w for w in wanted if w not in known]
     if unknown:
         raise TargetsError(f"unknown check id(s): {', '.join(unknown)}. Valid ids: {', '.join(sorted(known))}")
