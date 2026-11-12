@@ -3,13 +3,29 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from typing import Any
 
+from .i18n import get_lang, t
 from .checks import ERROR, FAIL, WARN, CheckSpec
 from .runner import TargetResult
 
-BANNER = ("[mock] Practice results from the built-in mock server - not results from a real server. "
-          "(연습용 목(mock) 서버 결과입니다 - 실제 서버 결과가 아닙니다)")
+
+def banner(lang: str | None = None) -> str:
+    """The mock-results notice, in one language (the selected one by default)."""
+    return t("report.banner", lang)
+
+
+BANNER = banner("en")  # kept for library callers
+
+
+def _width(text: str) -> int:
+    """Display width in terminal columns: wide and fullwidth characters (Hangul, CJK) take two."""
+    return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1 for ch in text)
+
+
+def _ljust(text: str, width: int) -> str:
+    return text + " " * max(0, width - _width(text))
 
 
 def has_failures(results: list[TargetResult]) -> bool:
@@ -36,36 +52,39 @@ def _details(results: list[TargetResult]) -> list[str]:
     return lines
 
 
-def render_text(results: list[TargetResult], checks: list[CheckSpec]) -> str:
-    name_w = max(6, *(len(tr.target.name) for tr in results))
+def render_text(results: list[TargetResult], checks: list[CheckSpec], lang: str | None = None) -> str:
+    lang = lang or get_lang()
+    head = t("report.target", lang)
+    name_w = max(6, _width(head), *(_width(tr.target.name) for tr in results))
     cols = [c.short for c in checks]
-    widths = [max(len(c), 4) for c in cols]
-    lines = [BANNER] if _is_mock(results) else []
-    lines.append("target".ljust(name_w) + "  " + "  ".join(c.ljust(w) for c, w in zip(cols, widths)))
+    widths = [max(_width(c), 4) for c in cols]
+    lines = [banner(lang)] if _is_mock(results) else []
+    lines.append(_ljust(head, name_w) + "  " + "  ".join(_ljust(c, w) for c, w in zip(cols, widths)))
     lines.append("-" * (name_w + sum(widths) + 2 * len(widths)))
     for tr in results:
         by_id = {r.check: r for r in tr.results}
-        cells = [(_cell(by_id[c.id].grade) if c.id in by_id else "-").ljust(w) for c, w in zip(checks, widths)]
-        lines.append(tr.target.name.ljust(name_w) + "  " + "  ".join(cells))
+        cells = [_ljust(_cell(by_id[c.id].grade) if c.id in by_id else "-", w) for c, w in zip(checks, widths)]
+        lines.append(_ljust(tr.target.name, name_w) + "  " + "  ".join(cells))
     details = _details(results)
     if details:
-        lines += ["", "Details (non-PASS):"] + [f"  {d}" for d in details]
+        lines += ["", t("report.details", lang) + ":"] + [f"  {d}" for d in details]
     summary = {g: sum(r.grade == g for tr in results for r in tr.results) for g in ("PASS", WARN, FAIL, "SKIP", ERROR)}
-    lines += ["", "Summary: " + ", ".join(f"{g}={n}" for g, n in summary.items() if n)]
-    lines.append("Columns: " + ", ".join(f"{c.short}={c.id}" for c in checks))
+    lines += ["", t("report.summary", lang) + ": " + ", ".join(f"{g}={n}" for g, n in summary.items() if n)]
+    lines.append(t("report.columns", lang) + ": " + ", ".join(f"{c.short}={c.id}" for c in checks))
     return "\n".join(lines)
 
 
-def render_markdown(results: list[TargetResult], checks: list[CheckSpec]) -> str:
-    lines = [f"> {BANNER}", ""] if _is_mock(results) else []
-    lines.append("| target | " + " | ".join(c.id for c in checks) + " |")
+def render_markdown(results: list[TargetResult], checks: list[CheckSpec], lang: str | None = None) -> str:
+    lang = lang or get_lang()
+    lines = [f"> {banner(lang)}", ""] if _is_mock(results) else []
+    lines.append(f"| {t('report.target', lang)} | " + " | ".join(c.id for c in checks) + " |")
     lines.append("|---|" + "---|" * len(checks))
     for tr in results:
         by_id = {r.check: r for r in tr.results}
         lines.append(f"| {tr.target.name} | " + " | ".join(_cell(by_id[c.id].grade) if c.id in by_id else "-" for c in checks) + " |")
     details = _details(results)
     if details:
-        lines += ["", "### Details (non-PASS)", ""] + [f"- {d}" for d in details]
+        lines += ["", f"### {t('report.details', lang)}", ""] + [f"- {d}" for d in details]
     return "\n".join(lines)
 
 
@@ -83,9 +102,10 @@ def render_json(results: list[TargetResult]) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
-def render(results: list[TargetResult], checks: list[CheckSpec], fmt: str) -> str:
+def render(results: list[TargetResult], checks: list[CheckSpec], fmt: str, lang: str | None = None) -> str:
+    """Render in ``fmt`` (text, md, json). ``lang`` (en/ko) never affects JSON."""
     if fmt == "md":
-        return render_markdown(results, checks)
+        return render_markdown(results, checks, lang)
     if fmt == "json":
         return render_json(results)
-    return render_text(results, checks)
+    return render_text(results, checks, lang)
