@@ -3,6 +3,20 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-13
+
+### Added
+- Screen language selection, English and Korean: `--lang en|ko` (accepted before or after the subcommand), then the `TOOLCALL_CONFORMANCE_LANG` environment variable, then `LC_ALL`/`LC_MESSAGES`/`LANG` (a value starting with `ko` selects Korean; anything else, English). It covers `--help`, argparse usage errors, error messages, `list`, `mock`, progress lines and the text/Markdown report labels. Messages live in `toolcall_conformance/i18n.py`.
+- `TargetsError` now carries `code` and `params`; `str(err)` is unchanged (English).
+- `render`, `render_text`, `render_markdown` accept an optional `lang` keyword.
+
+### Changed
+- The mock banner of text/Markdown output is now a single line in the selected language (it used to contain English and Korean together). Scripts that match the banner text should match the English sentence `[mock] Practice results from the built-in mock server - not results from a real server.` (its trailing space and Korean part are gone).
+- With a Korean locale (for example `LANG=ko_KR.UTF-8`) text output is now Korean by default; set `TOOLCALL_CONFORMANCE_LANG=en` or pass `--lang en` to keep English.
+
+### Unchanged
+- `--format json` output, JSONL evidence, per-check `reason` strings, check ids, grade tokens and exit codes do not depend on the language.
+
 ## [0.2.0] - 2026-11-12
 
 ### Changed
