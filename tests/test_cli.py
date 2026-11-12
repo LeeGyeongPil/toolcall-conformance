@@ -256,3 +256,134 @@ def test_connection_reset_is_error(capsys):
     assert code == 1
     res = json.loads(out)["targets"][0]["results"][0]
     assert res["grade"] == "ERROR" and "transport error" in res["reason"]
+
+
+# --- --targets: unreachable / keyless targets are skipped as ERROR rows ---
+
+DEAD_URL = "http://127.0.0.1:9/v1"  # closed port: connection refused
+
+
+def _write_targets(tmp_path, *tables):
+    toml = tmp_path / "skip.toml"
+    toml.write_text("".join(
+        f'[[target]]\nname = "{n}"\nbase_url = "{u}"\nmodel = "mock"\n' + (f'api_key_env = "{k}"\n' if k else "") + "\n"
+        for n, u, k in tables))
+    return toml
+
+
+def test_targets_skip_refused_first(capsys, server, tmp_path):
+    toml = _write_targets(tmp_path, ("down", DEAD_URL, ""), ("up", server.url("good"), ""))
+    code, out, err = run(capsys, "run", "--targets", str(toml), "--format", "md")
+    assert code == 1
+    rows = {l.split("|")[1].strip(): l for l in out.splitlines() if l.startswith("| ") and "|" in l[2:]}
+    assert "ERR" in rows["down"] and "PASS" not in rows["down"]
+    assert "ERR" not in rows["up"] and "FAIL" not in rows["up"]
+    assert "skipping target down" in err and "cannot connect" in err and "Traceback" not in err
+    assert "down / " in out and "target skipped: cannot connect" in out
+
+
+def test_targets_skip_refused_last_json_and_jsonl(capsys, server, tmp_path):
+    toml = _write_targets(tmp_path, ("up", server.url("good"), ""), ("down", DEAD_URL, ""))
+    jsonl = tmp_path / "r.jsonl"
+    code, out, err = run(capsys, "run", "--targets", str(toml), "--format", "json", "--out", str(jsonl))
+    assert code == 1
+    data = json.loads(out)
+    assert data  # parses; stdout stays clean
+    lines = [json.loads(l) for l in jsonl.read_text().splitlines()]
+    assert len(lines) == 22
+    down = [r for r in lines if r["target"]["name"] == "down"]
+    assert len(down) == 11 and all(r["grade"] == "ERROR" and "cannot connect" in r["reason"] and r["evidence"] == []
+                                   for r in down)
+    assert "skipping target down" in err
+
+
+@contextlib.contextmanager
+def _counting_listener():
+    """Loopback listener that counts accepted connections; yields (base_url, count)."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+    accepted: list[socket.socket] = []
+    stop = threading.Event()
+
+    def accept():
+        srv.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                accepted.append(srv.accept()[0])
+            except OSError:
+                continue
+
+    t = threading.Thread(target=accept, daemon=True)
+    t.start()
+    try:
+        yield f"http://127.0.0.1:{srv.getsockname()[1]}/v1", lambda: len(accepted)
+    finally:
+        stop.set()
+        t.join(timeout=2)
+        for c in accepted:
+            c.close()
+        srv.close()
+
+
+def test_targets_skip_key_unset(capsys, server, tmp_path, monkeypatch):
+    monkeypatch.delenv("TCC_UNSET_KEY", raising=False)
+    with _counting_listener() as (url, count):
+        toml = _write_targets(tmp_path, ("keyless", url, "TCC_UNSET_KEY"), ("up", server.url("good"), ""))
+        code, out, err = run(capsys, "run", "--targets", str(toml), "--format", "md", "--only", "nonstream_basic")
+        assert count() == 0  # a keyless target gets no request at all
+    assert code == 1
+    assert "TCC_UNSET_KEY" in err and "skipping target keyless" in err
+    assert "TCC_UNSET_KEY" in out
+    row_up = next(l for l in out.splitlines() if l.startswith("| up "))
+    assert "PASS" in row_up and "ERR" not in row_up
+
+
+def test_targets_all_skipped_exit2(capsys, tmp_path, monkeypatch):
+    monkeypatch.delenv("TCC_UNSET_KEY", raising=False)
+    toml = _write_targets(tmp_path, ("down", DEAD_URL, ""), ("keyless", DEAD_URL, "TCC_UNSET_KEY"))
+    code, out, err = run(capsys, "run", "--targets", str(toml), "--format", "json")
+    assert code == 2 and out == ""
+    assert "skipping target down" in err and "skipping target keyless" in err
+    assert "Is the server running" in err
+
+
+def test_targets_resume_retries_skipped(capsys, server, tmp_path):
+    jsonl = tmp_path / "r.jsonl"
+    toml = _write_targets(tmp_path, ("t", DEAD_URL, ""))
+    run(capsys, "run", "--targets", str(toml), "--out", str(jsonl), "--only", "nonstream_basic")
+    toml = _write_targets(tmp_path, ("t", server.url("good"), ""))
+    code, *_ = run(capsys, "run", "--targets", str(toml), "--out", str(jsonl), "--resume", "--only", "nonstream_basic")
+    assert code == 0
+    grades = [json.loads(l)["grade"] for l in jsonl.read_text().splitlines()]
+    assert grades == ["ERROR", "PASS"]
+
+
+def test_targets_resume_keeps_recorded_pass_when_key_unset(capsys, server, tmp_path, monkeypatch):
+    jsonl = tmp_path / "r.jsonl"
+    toml = _write_targets(tmp_path, ("t", server.url("good"), "TCC_K"), ("u", server.url("good"), ""))
+    monkeypatch.setenv("TCC_K", "sk-test-key-value-456")
+    code, *_ = run(capsys, "run", "--targets", str(toml), "--out", str(jsonl), "--only", "nonstream_basic")
+    assert code == 0
+    before = jsonl.read_text()
+    monkeypatch.delenv("TCC_K")
+    code, out, err = run(capsys, "run", "--targets", str(toml), "--out", str(jsonl), "--resume",
+                         "--only", "nonstream_basic", "--format", "md")
+    assert code == 0  # everything is recorded as PASS: nothing is lost, nothing becomes ERROR
+    assert "ERR" not in out and "skipping target" not in err
+    assert jsonl.read_text() == before  # no ERROR row appended over the recorded PASS
+
+
+def test_targets_resume_keeps_recorded_then_errors_rest(capsys, server, tmp_path):
+    jsonl = tmp_path / "r.jsonl"
+    run(capsys, "run", "--targets", str(_write_targets(tmp_path, ("t", server.url("good"), ""))),
+        "--out", str(jsonl), "--only", "nonstream_basic")
+    toml = _write_targets(tmp_path, ("t", DEAD_URL, ""), ("u", server.url("good"), ""))
+    code, out, err = run(capsys, "run", "--targets", str(toml), "--out", str(jsonl), "--resume",
+                         "--only", "nonstream_basic,content_leak", "--format", "md")
+    assert code == 1  # content_leak could not be checked
+    row_t = next(l for l in out.splitlines() if l.startswith("| t "))
+    assert "PASS" in row_t and "ERR" in row_t  # recorded PASS kept, the rest is ERROR
+    recs = [json.loads(l) for l in jsonl.read_text().splitlines()]
+    t_recs = [(r["check"], r["grade"]) for r in recs if r["target"]["name"] == "t"]
+    assert t_recs == [("nonstream_basic", "PASS"), ("content_leak", "ERROR")]
