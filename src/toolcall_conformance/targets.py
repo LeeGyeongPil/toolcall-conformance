@@ -22,6 +22,7 @@ class Target:
     headers: dict[str, str] = field(default_factory=dict)
     notes: str = ""
     mock: bool = False  # set when the server identifies itself as the built-in mock
+    unavailable: str = ""  # why the target cannot be checked (e.g. key variable unset); empty if usable
 
     @property
     def api_key(self) -> str | None:
@@ -39,15 +40,19 @@ def validate_url(url: str, where: str) -> str:
 
 
 def make_target(name: str, base_url: str, model: str, api_key_env: str = "",
-                headers: dict[str, str] | None = None, notes: str = "") -> Target:
+                headers: dict[str, str] | None = None, notes: str = "",
+                require_key: bool = True) -> Target:
     base_url = validate_url(base_url, f"target {name!r}")
     if not model:
         raise TargetsError(f"target {name!r}: model must not be empty (pass --model or set `model`)")
+    unavailable = ""
     if api_key_env and not os.environ.get(api_key_env):
-        raise TargetsError(
-            f"target {name!r}: environment variable {api_key_env} is not set. "
-            f"Export it (export {api_key_env}=...) or drop api_key_env for servers without auth.")
-    return Target(name, base_url, model, api_key_env, dict(headers or {}), notes)
+        message = (f"target {name!r}: environment variable {api_key_env} is not set. "
+                   f"Export it (export {api_key_env}=...) or drop api_key_env for servers without auth.")
+        if require_key:
+            raise TargetsError(message)
+        unavailable = message
+    return Target(name, base_url, model, api_key_env, dict(headers or {}), notes, unavailable=unavailable)
 
 
 def load_targets(path: str | Path) -> list[Target]:
@@ -74,5 +79,6 @@ def load_targets(path: str | Path) -> list[Target]:
         if not isinstance(headers, dict) or not all(isinstance(v, str) for v in headers.values()):
             raise TargetsError(f"{p}: target {entry['name']!r}: `headers` must be a table of strings")
         targets.append(make_target(entry["name"], entry["base_url"], entry["model"],
-                                   entry.get("api_key_env", ""), headers, entry.get("notes", "")))
+                                   entry.get("api_key_env", ""), headers, entry.get("notes", ""),
+                                   require_key=False))
     return targets

@@ -100,7 +100,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
     checks = _select_checks(args.only)
     results = run_targets(
         targets, checks, timeout=args.timeout, out_path=_out_path(args.out), resume=args.resume,
-        progress=(lambda m: print(f"  running {m}", file=sys.stderr)) if args.format == "text" else None)
+        progress=(lambda m: print(f"  running {m}", file=sys.stderr)) if args.format == "text" else None,
+        skip_unreachable=bool(args.targets))
+    skipped = [tr for tr in results if tr.skipped]
+    for tr in skipped:  # stderr only: stdout stays clean JSON/Markdown
+        hint = "" if tr.target.unavailable else ". Is the server running and is the base URL right?"
+        print(f"skipping target {tr.target.name}: {tr.skipped}{hint}", file=sys.stderr)
+    if skipped and len(skipped) == len(results):
+        return EXIT_USAGE  # every target was skipped: nothing was checked
     print(render(results, checks, args.format))
     return EXIT_FAIL if has_failures(results) else EXIT_OK
 

@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .checks import ERROR, CheckResult, CheckSpec
-from .client import Exchange, post_chat
+from .client import ConnectError, Exchange, post_chat
 from .scenarios import build_request
-from .targets import Target
+from .targets import Target, TargetsError
 
 
 class Context:
@@ -49,6 +49,7 @@ class Context:
 class TargetResult:
     target: Target
     results: list[CheckResult] = field(default_factory=list)
+    skipped: str = ""  # reason when the target was skipped (unreachable or key unset); empty otherwise
 
 
 def result_to_record(target: Target, res: CheckResult, evidence: list[dict[str, Any]]) -> dict[str, Any]:
@@ -82,6 +83,14 @@ def load_done(path: Path) -> dict[tuple[str, str], dict[str, Any]]:
     return done
 
 
+def _record(tr: TargetResult, sink: Any, secrets: list[str], res: CheckResult, ev: list[dict[str, Any]]) -> None:
+    tr.results.append(res)
+    if sink:
+        line = json.dumps(result_to_record(tr.target, res, ev), ensure_ascii=False)
+        sink.write(redact(line, secrets) + "\n")
+        sink.flush()  # an interrupted run keeps what finished
+
+
 def run_targets(
     targets: list[Target],
     checks: list[CheckSpec],
@@ -90,8 +99,14 @@ def run_targets(
     out_path: Path | None = None,
     resume: bool = False,
     progress: Callable[[str], None] | None = None,
+    skip_unreachable: bool = False,
 ) -> list[TargetResult]:
-    """Run ``checks`` on every target. ``ConnectError`` propagates to the caller."""
+    """Run ``checks`` on every target.
+
+    By default ``ConnectError`` propagates to the caller. With ``skip_unreachable=True`` a target that
+    cannot be reached (or is unavailable, e.g. its key variable is unset) gets ERROR rows for the checks
+    not yet recorded and the run continues with the next target.
+    """
     done = load_done(out_path) if (resume and out_path) else {}
     secrets = [t.api_key or "" for t in targets]
     sink = None
@@ -103,12 +118,20 @@ def run_targets(
         for target in targets:
             ctx = Context(target, timeout)
             tr = TargetResult(target)
+            if target.unavailable:
+                if not skip_unreachable:
+                    raise TargetsError(target.unavailable)
+            skip_reason = target.unavailable  # becomes tr.skipped once a check actually needs a request
             for spec in checks:
                 prior = done.get((target.name, spec.id))
-                if prior and prior["grade"] != ERROR:  # recorded: skip without a request (ERROR is retried)
+                if prior and prior["grade"] != ERROR:  # recorded: keep it, even for a skipped target (ERROR is retried)
                     tr.results.append(CheckResult(spec.id, prior["grade"], prior["reason"], prior.get("info") or {},
                                                   sdk_version=prior.get("sdk_version") or ""))
                     target.mock = target.mock or bool(prior["target"].get("mock"))
+                    continue
+                if skip_reason:  # no further requests to a skipped target
+                    tr.skipped = skip_reason
+                    _record(tr, sink, secrets, CheckResult(spec.id, ERROR, f"target skipped: {skip_reason}"), [])
                     continue
                 if progress:
                     progress(f"{target.name}: {spec.id}")
@@ -117,17 +140,16 @@ def run_targets(
                 except (KeyboardInterrupt, SystemExit):
                     raise
                 except Exception as err:  # noqa: BLE001
-                    from .client import ConnectError
                     if isinstance(err, ConnectError):
-                        raise
+                        if not skip_unreachable:
+                            raise
+                        skip_reason = tr.skipped = str(err)
+                        _record(tr, sink, secrets, CheckResult(spec.id, ERROR, f"target skipped: {err}"), [])
+                        continue
                     res = CheckResult(spec.id, ERROR, f"{type(err).__name__}: {err}"[:300])
                 ev = ctx.evidence(res.scenarios)
                 res.scenarios = res.scenarios or []
-                tr.results.append(res)
-                if sink:
-                    line = json.dumps(result_to_record(target, res, ev), ensure_ascii=False)
-                    sink.write(redact(line, secrets) + "\n")
-                    sink.flush()  # an interrupted run keeps what finished
+                _record(tr, sink, secrets, res, ev)
             results.append(tr)
     finally:
         if sink:

@@ -1,5 +1,5 @@
 # Example target list:  toolcall-conformance run --targets examples/targets.toml --format md
-# Start only the servers you have; remove the other tables.
+# Servers that are not running (or whose key variable is unset) show up as ERR rows; remove their tables if you prefer.
 # `notes` is free text (server flags, versions) kept in the JSONL record.
 
 [[target]]
