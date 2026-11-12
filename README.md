@@ -27,7 +27,7 @@ uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-con
 uv tool install git+https://github.com/LeeGyeongPil/toolcall-conformance
 toolcall-conformance --version
 ```
-After the PyPI release, `uvx toolcall-conformance demo` will also work. As of this writing, we confirmed that pointing at the repo source by local path, `uvx --from <path> toolcall-conformance --version` prints `toolcall-conformance 0.1.2`. No separate system packages are needed (the standard library plus the official `openai` SDK, just one).
+After the PyPI release, `uvx toolcall-conformance demo` will also work. As of this writing, we confirmed that pointing at the repo source by local path, `uvx --from <path> toolcall-conformance --version` prints `toolcall-conformance 0.2.0`. No separate system packages are needed (the standard library plus the official `openai` SDK, just one).
 
 To use it from a clone of the repo:
 ```bash
@@ -75,7 +75,7 @@ How to read it:
 | `mock [--port N]` | Keep a mock server running (end with Ctrl-C) | `mock --port 8089` |
 | `list` | Describes the checks and mock modes | `toolcall-conformance list` |
 
-Exit codes: `0` all checks pass (no FAIL or ERROR), `1` there is a FAIL or ERROR, `2` usage error, server connection refused, or address resolution (DNS) failure (a drop after connecting or a timeout is recorded as `ERROR`, giving exit code 1). (`demo` uses only the `good` mode for its verdict.)
+Exit codes: `0` all checks pass (no FAIL or ERROR), `1` there is a FAIL or ERROR, `2` usage error, server connection refused, or address resolution (DNS) failure (a drop after connecting or a timeout is recorded as `ERROR`, giving exit code 1). With `--targets`, a target that cannot be reached or whose `api_key_env` variable is unset is skipped: its row shows `ERR` in every column, the reason is listed under the details, `skipping target <name>: ...` goes to stderr, the other targets are still checked and the exit code is 1. Exit code 2 only when every target was skipped. With `--resume`, results already recorded in `--out` (PASS and so on) are kept even for a skipped target; only the checks with no record become `ERROR`. A single `--base-url` run is unchanged (refused connection is exit code 2). (`demo` uses only the `good` mode for its verdict.)
 
 ### Scenario 1: Check your Ollama
 ```bash
@@ -117,7 +117,7 @@ toolcall-conformance run --targets examples/targets.toml --format md > report.md
 ![Comparison of direct connection and via proxy](docs/images/04-targets-matrix.png)
 *With `--targets`, several targets are run through the same checks to make a target x check table. The figure above is an example in which two modes of the practice mock server are named "direct" and "via proxy."*
 
-**First, edit `examples/targets.toml`.** This file is an example of 4 servers (Ollama, llama-server, vLLM, LiteLLM), and if it cannot connect to the first server, the whole run stops with exit code 2. Delete the `[[target]]` blocks of servers you don't run, and if no key is needed, delete the `api_key_env` line too or set `TOOLCALL_API_KEY`. If direct is PASS and via-proxy is FAIL, the proxy is to blame. `examples/targets.toml` has examples for Ollama, llama-server, vLLM, and LiteLLM (the required server options are in `notes`). In CI, run a reduced set such as `run ... --only stream_assembly,roundtrip` and treat exit code 1 as a failure. If it was cut off midway, use `--resume` with the same `--out`.
+**First, edit `examples/targets.toml`.** This file is an example of 4 servers (Ollama, llama-server, vLLM, LiteLLM), and servers that are not running, or whose key variable is unset, show up as `ERR` rows while the rest are still checked. Deleting the `[[target]]` blocks of servers you don't run is optional (it keeps CI green); if no key is needed, delete the `api_key_env` line or set `TOOLCALL_API_KEY`. If direct is PASS and via-proxy is FAIL, the proxy is to blame. `examples/targets.toml` has examples for Ollama, llama-server, vLLM, and LiteLLM (the required server options are in `notes`). In CI, run a reduced set such as `run ... --only stream_assembly,roundtrip` and treat exit code 1 as a failure. If it was cut off midway, use `--resume` with the same `--out`.
 
 ## Checks
 This is the correspondence between the short labels in the table and the check names. For criteria, common causes, and spec sources, see [docs/checks.md](docs/checks.md).
@@ -210,6 +210,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 | Symptom | Cause | Fix |
 |---|---|---|
 | `error: cannot connect to ... Connection refused` and exit code 2 | The server is not running, or the address or port is wrong | Check that the server is running, and that `--base-url` includes the `/v1` |
+| `skipping target <name>: ...` on stderr, an `ERR` row in `--targets` | That target is not running or its `api_key_env` variable is unset (the others were still checked, exit code 1) | Start the server or export the variable, then re-run with `--resume` and the same `--out`; or remove the block |
 | Every check is slow or `ERROR` (timeout) | First model load delay, shared GPU | `--timeout 300`, narrow with `--only`, and if it was cut off midway use `--resume` (with the same `--out`, only `ERROR` entries are re-run) |
 | `error: --only has no check ids` and exit code 2 | The `--only` value is empty (a CI variable substituted to empty, or only commas remain) | Check the variable value. To run everything, drop `--only` |
 | `error: unknown check id(s): ...` and exit code 2 | A non-existent check name is mixed into `--only` (a typo; the same even alongside valid names) | Check the names with `toolcall-conformance list` |
@@ -223,7 +224,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## Development and contributing
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 77 passed, no key or network needed
+uv run pytest -q    # 84 passed, no key or network needed
 ```
 Please leave bugs and suggestions as issues. The change log is [CHANGELOG.md](CHANGELOG.md).
 

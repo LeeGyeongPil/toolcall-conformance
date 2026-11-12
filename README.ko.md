@@ -27,7 +27,7 @@ uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-con
 uv tool install git+https://github.com/LeeGyeongPil/toolcall-conformance
 toolcall-conformance --version
 ```
-PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.1.2` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
+PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.2.0` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
 
 레포를 받아 쓰려면:
 ```bash
@@ -75,7 +75,7 @@ ollama_like          PASS   PASS  PASS  PASS    PASS  PASS  FAIL  FAIL  FAIL   P
 | `mock [--port N]` | 목 서버를 띄워 둠(Ctrl-C 로 종료) | `mock --port 8089` |
 | `list` | 검사 항목과 목 모드 설명 | `toolcall-conformance list` |
 
-종료 코드: `0` 모든 검사 통과(FAIL·ERROR 없음), `1` FAIL 또는 ERROR 있음, `2` 사용법 오류·서버 연결 거부·주소 해석(DNS) 실패(접속 후 끊김·타임아웃은 `ERROR` 로 기록되어 종료 코드 1). (`demo` 는 `good` 모드만 판정에 씁니다.)
+종료 코드: `0` 모든 검사 통과(FAIL·ERROR 없음), `1` FAIL 또는 ERROR 있음, `2` 사용법 오류·서버 연결 거부·주소 해석(DNS) 실패(접속 후 끊김·타임아웃은 `ERROR` 로 기록되어 종료 코드 1). `--targets` 에서는 연결할 수 없거나 `api_key_env` 환경변수가 없는 대상을 건너뜁니다. 그 행은 모든 열이 `ERR` 이고 이유는 상세 목록에 나오며, stderr 에 `skipping target <이름>: ...` 이 출력되고, 나머지 대상은 계속 검사하며 종료 코드는 1 입니다. 모든 대상을 건너뛴 경우에만 종료 코드 2 입니다. `--resume` 에서는 `--out` 에 이미 기록된 결과(PASS 등)가 건너뛴 대상에서도 유지되고, 기록이 없는 검사만 `ERROR` 가 됩니다. 단일 `--base-url` 실행은 그대로입니다(연결 거부는 종료 코드 2). (`demo` 는 `good` 모드만 판정에 씁니다.)
 
 ### 시나리오 1: 내 Ollama 검사
 ```bash
@@ -117,7 +117,7 @@ toolcall-conformance run --targets examples/targets.toml --format md > report.md
 ![직접 연결과 프록시 경유 비교](docs/images/04-targets-matrix.png)
 *`--targets` 로 대상 여러 곳을 같은 검사로 돌려 대상 x 검사 표를 만듭니다. 위 그림은 연습용 목 서버 두 모드를 "직접"과 "프록시 경유"로 이름 붙인 예시입니다.*
 
-**먼저 `examples/targets.toml` 을 고치세요.** 이 파일은 서버 4곳(Ollama·llama-server·vLLM·LiteLLM)의 예시이고, 첫 서버에 연결하지 못하면 전체가 종료 코드 2 로 멈춥니다. 실행하지 않는 서버의 `[[target]]` 블록은 지우고, 키가 필요 없으면 `api_key_env` 줄도 지우거나 `TOOLCALL_API_KEY` 를 설정하세요. 직접은 PASS, 경유는 FAIL 이면 프록시 탓입니다. `examples/targets.toml` 에 Ollama·llama-server·vLLM·LiteLLM 예시가 있습니다(필요한 서버 옵션은 `notes` 에). CI 에서는 `run ... --only stream_assembly,roundtrip` 처럼 줄여 돌리고 종료 코드 1 을 실패로 취급하면 됩니다. 중간에 끊겼다면 같은 `--out` 으로 `--resume`.
+**먼저 `examples/targets.toml` 을 고치세요.** 이 파일은 서버 4곳(Ollama·llama-server·vLLM·LiteLLM)의 예시이고, 실행 중이 아니거나 키 환경변수가 없는 서버는 `ERR` 행으로 표시되고 나머지는 계속 검사합니다. 실행하지 않는 서버의 `[[target]]` 블록을 지우는 것은 선택입니다(CI 를 초록으로 유지하려면 지우세요). 키가 필요 없으면 `api_key_env` 줄을 지우거나 `TOOLCALL_API_KEY` 를 설정하세요. 직접은 PASS, 경유는 FAIL 이면 프록시 탓입니다. `examples/targets.toml` 에 Ollama·llama-server·vLLM·LiteLLM 예시가 있습니다(필요한 서버 옵션은 `notes` 에). CI 에서는 `run ... --only stream_assembly,roundtrip` 처럼 줄여 돌리고 종료 코드 1 을 실패로 취급하면 됩니다. 중간에 끊겼다면 같은 `--out` 으로 `--resume`.
 
 ## 검사 항목
 표의 줄임 라벨과 검사 이름의 대응입니다. 기준·흔한 원인·규격 출처는 [docs/checks.md](docs/checks.md).
@@ -210,6 +210,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 | 증상 | 원인 | 해결 |
 |---|---|---|
 | `error: cannot connect to ... Connection refused` 와 종료 코드 2 | 서버가 안 떠 있거나 주소·포트가 틀림 | 서버 실행 확인, `--base-url` 이 `/v1` 까지 포함하는지 확인 |
+| stderr 의 `skipping target <이름>: ...`, `--targets` 표의 `ERR` 행 | 그 대상이 실행 중이 아니거나 `api_key_env` 환경변수가 없음(나머지는 검사됨, 종료 코드 1) | 서버를 켜거나 변수를 export 한 뒤 같은 `--out` 으로 `--resume`, 또는 블록 삭제 |
 | 모든 검사가 느리거나 `ERROR`(타임아웃) | 첫 모델 로드 지연, 공유 GPU | `--timeout 300`, `--only` 로 줄이기, 중간에 끊겼다면 `--resume`(같은 `--out` 이면 `ERROR` 만 다시 실행) |
 | `error: --only has no check ids` 와 종료 코드 2 | `--only` 값이 비었음(CI 변수 치환이 비었거나 쉼표만 남음) | 변수 값 확인. 전체를 돌리려면 `--only` 를 빼기 |
 | `error: unknown check id(s): ...` 와 종료 코드 2 | `--only` 에 없는 검사 이름이 섞임(오타. 유효한 이름과 함께여도 마찬가지) | `toolcall-conformance list` 로 이름 확인 |
@@ -223,7 +224,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## 개발·기여
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 77 passed, 키·네트워크 불필요
+uv run pytest -q    # 84 passed, 키·네트워크 불필요
 ```
 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
 
