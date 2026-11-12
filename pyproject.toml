@@ -1,6 +1,6 @@
 [project]
 name = "toolcall-conformance"
-version = "0.1.2"
+version = "0.2.0"
 description = "Check how an OpenAI-compatible server (Ollama, llama.cpp, vLLM, LM Studio, LiteLLM...) handles tool calls on the wire."
 readme = "README.md"
 license = "MIT"

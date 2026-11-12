@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-12
+
+### Changed
+- `run --targets` now skips a target that refuses the connection, fails DNS, or whose `api_key_env` variable is unset: it is recorded as `ERROR` rows (reason `target skipped: ...`, also in the JSONL) and the remaining targets are still checked. A line `skipping target <name>: <reason>` is printed to stderr. Exit code 2 is now used only when every target was skipped. Behavior change for CI: a run that used to exit 2 because one target was down now exits 1. A single `--base-url` run is unchanged. `run_targets(..., skip_unreachable=True)` enables this for library callers (default unchanged). With `--resume`, results already recorded for a skipped target are kept; only unrecorded checks become `ERROR`. This resolves the 0.1.0 known limitation about unreachable targets.
+
 ## [0.1.2] - 2026-11-11
 
 ### Fixed
