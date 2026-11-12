@@ -4,7 +4,7 @@
 
 에이전트가 도구를 갑자기 안 쓰거나 `<tool_call>` 글자를 그냥 뱉을 때, 원인이 서버 파서인지·모델 템플릿인지·클라이언트 SDK인지 손으로 SSE를 읽지 않고 명령 하나로 가려 줍니다.
 
-![9가지 모드 x 11개 검사 결과 표](docs/images/01-demo-matrix.png)
+![9가지 모드 x 11개 검사 결과 표](docs/images/01-demo-matrix.ko.png)
 *`demo` 결과: 연습용 목(mock) 서버의 9가지 동작 모드(세로)를 11개 검사(가로)로 훑은 표. 모드마다 어떤 검사가 깨지는지 한눈에 보입니다.*
 
 ## 이런 분께
@@ -27,7 +27,7 @@ uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-con
 uv tool install git+https://github.com/LeeGyeongPil/toolcall-conformance
 toolcall-conformance --version
 ```
-PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.2.0` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
+PyPI 게시 후에는 `uvx toolcall-conformance demo` 로도 실행됩니다. 이 글을 쓴 시점에는 레포 소스를 로컬 경로로 지정해 `uvx --from <경로> toolcall-conformance --version` 이 `toolcall-conformance 0.3.0` 을 출력하는 것까지 확인했습니다. 별도의 시스템 패키지는 필요 없습니다(표준 라이브러리 + 공식 `openai` SDK 하나).
 
 레포를 받아 쓰려면:
 ```bash
@@ -39,10 +39,10 @@ uv run toolcall-conformance demo
 ```bash
 uv run toolcall-conformance demo
 ```
-출력(몇 초 걸립니다. 실제 실행 결과 중 표 부분 발췌이며, 표 아래에 비PASS 상세 목록과 `Summary` 줄이 이어서 출력됩니다):
+한국어 로케일이거나 `--lang ko` 일 때의 출력입니다(그 외에는 영어 화면). 몇 초 걸립니다. 실제 실행 결과 중 표 부분 발췌이며, 표 아래에 비PASS 상세 목록과 `요약` 줄이 이어서 출력됩니다):
 ```
-[mock] Practice results from the built-in mock server - not results from a real server. (연습용 목(mock) 서버 결과입니다 - 실제 서버 결과가 아닙니다)
-target               basic  leak  args  stream  done  sdk   none  req   named  para  trip
+[mock] 내장 목(mock) 서버의 연습용 결과입니다. 실제 서버의 결과가 아닙니다.
+대상                 basic  leak  args  stream  done  sdk   none  req   named  para  trip
 -----------------------------------------------------------------------------------------
 good                 PASS   PASS  PASS  PASS    PASS  PASS  PASS  PASS  PASS   PASS  PASS
 no_index             PASS   PASS  PASS  FAIL    PASS  FAIL  PASS  PASS  PASS   PASS  PASS
@@ -74,8 +74,22 @@ ollama_like          PASS   PASS  PASS  PASS    PASS  PASS  FAIL  FAIL  FAIL   P
 | `--api-key-env 이름` | API 키가 든 **환경변수 이름** | `--api-key-env TOOLCALL_API_KEY` |
 | `mock [--port N]` | 목 서버를 띄워 둠(Ctrl-C 로 종료) | `mock --port 8089` |
 | `list` | 검사 항목과 목 모드 설명 | `toolcall-conformance list` |
+| `--lang en\|ko` | 화면 언어("출력 언어" 참고) | `--lang ko demo` |
 
-종료 코드: `0` 모든 검사 통과(FAIL·ERROR 없음), `1` FAIL 또는 ERROR 있음, `2` 사용법 오류·서버 연결 거부·주소 해석(DNS) 실패(접속 후 끊김·타임아웃은 `ERROR` 로 기록되어 종료 코드 1). `--targets` 에서는 연결할 수 없거나 `api_key_env` 환경변수가 없는 대상을 건너뜁니다. 그 행은 모든 열이 `ERR` 이고 이유는 상세 목록에 나오며, stderr 에 `skipping target <이름>: ...` 이 출력되고, 나머지 대상은 계속 검사하며 종료 코드는 1 입니다. 모든 대상을 건너뛴 경우에만 종료 코드 2 입니다. `--resume` 에서는 `--out` 에 이미 기록된 결과(PASS 등)가 건너뛴 대상에서도 유지되고, 기록이 없는 검사만 `ERROR` 가 됩니다. 단일 `--base-url` 실행은 그대로입니다(연결 거부는 종료 코드 2). (`demo` 는 `good` 모드만 판정에 씁니다.)
+종료 코드: `0` 모든 검사 통과(FAIL·ERROR 없음), `1` FAIL 또는 ERROR 있음, `2` 사용법 오류·서버 연결 거부·주소 해석(DNS) 실패(접속 후 끊김·타임아웃은 `ERROR` 로 기록되어 종료 코드 1). `--targets` 에서는 연결할 수 없거나 `api_key_env` 환경변수가 없는 대상을 건너뜁니다. 그 행은 모든 열이 `ERR` 이고 이유는 상세 목록에 나오며, stderr 에 `대상 건너뜀 <이름>: ...` 이 출력되고(영어 화면이면 `skipping target <name>: ...`), 나머지 대상은 계속 검사하며 종료 코드는 1 입니다. 모든 대상을 건너뛴 경우에만 종료 코드 2 입니다. `--resume` 에서는 `--out` 에 이미 기록된 결과(PASS 등)가 건너뛴 대상에서도 유지되고, 기록이 없는 검사만 `ERROR` 가 됩니다. 단일 `--base-url` 실행은 그대로입니다(연결 거부는 종료 코드 2). (`demo` 는 `good` 모드만 판정에 씁니다.)
+
+### 출력 언어
+도움말·오류·진행 줄·텍스트/Markdown 보고서 라벨이 영어 또는 한국어로 나옵니다. 언어는 다음 순서로 정해집니다.
+1. `--lang en|ko` (서브커맨드 앞뒤 어디든)
+2. 환경변수 `TOOLCALL_CONFORMANCE_LANG` (`en` 또는 `ko`)
+3. `LC_ALL`, `LC_MESSAGES`, `LANG` 순서로 확인: `ko` 로 시작하는 값(예: `ko_KR.UTF-8`)이면 한국어, 그 외는 영어
+```bash
+uv run toolcall-conformance --lang ko demo
+TOOLCALL_CONFORMANCE_LANG=ko uv run toolcall-conformance list
+```
+같은 `demo` 표의 영어 화면은 [README.md](README.md)에 있습니다(배너·`대상` 머리글·하단 줄이 한국어로 나오는 것이 이 문서의 화면입니다).
+
+언어와 상관없이 그대로인 것: `--format json` 출력, JSONL 근거 파일, 검사별 `reason` 문구(근거 데이터라 항상 영어), 검사 ID, `PASS/WARN/FAIL/SKIP/ERR` 등급, 종료 코드. 한국어 로케일 PC 에서는 텍스트 출력이 기본으로 한국어입니다. 출력 글자를 매칭하는 스크립트 등에서 영어를 유지하려면 `--lang en` 을 붙이세요.
 
 ### 시나리오 1: 내 Ollama 검사
 ```bash
@@ -90,7 +104,7 @@ uv run toolcall-conformance mock --port 8089 &
 uv run toolcall-conformance run --base-url http://127.0.0.1:8089/mode/no_index/v1 \
   --model mock --only stream_assembly,sdk_stream_compat
 ```
-![원시 조립은 보정 가능, SDK는 예외](docs/images/02-sdk-gap.png)
+![원시 조립은 보정 가능, SDK는 예외](docs/images/02-sdk-gap.ko.png)
 *같은 스트림이 두 방식으로 판정됩니다. 직접 조립한 쪽은 `repairable=True`(index를 0부터 채우면 읽힘), 공식 `openai` SDK 쪽은 `TypeError` 로 실패.*
 
 실제 출력 발췌(대상 이름은 `--base-url` 전체 주소로 찍힙니다):
@@ -114,7 +128,7 @@ toolcall-conformance run --base-url http://127.0.0.1:8089/mode/no_index/v1 --mod
 ```bash
 toolcall-conformance run --targets examples/targets.toml --format md > report.md
 ```
-![직접 연결과 프록시 경유 비교](docs/images/04-targets-matrix.png)
+![직접 연결과 프록시 경유 비교](docs/images/04-targets-matrix.ko.png)
 *`--targets` 로 대상 여러 곳을 같은 검사로 돌려 대상 x 검사 표를 만듭니다. 위 그림은 연습용 목 서버 두 모드를 "직접"과 "프록시 경유"로 이름 붙인 예시입니다.*
 
 **먼저 `examples/targets.toml` 을 고치세요.** 이 파일은 서버 4곳(Ollama·llama-server·vLLM·LiteLLM)의 예시이고, 실행 중이 아니거나 키 환경변수가 없는 서버는 `ERR` 행으로 표시되고 나머지는 계속 검사합니다. 실행하지 않는 서버의 `[[target]]` 블록을 지우는 것은 선택입니다(CI 를 초록으로 유지하려면 지우세요). 키가 필요 없으면 `api_key_env` 줄을 지우거나 `TOOLCALL_API_KEY` 를 설정하세요. 직접은 PASS, 경유는 FAIL 이면 프록시 탓입니다. `examples/targets.toml` 에 Ollama·llama-server·vLLM·LiteLLM 예시가 있습니다(필요한 서버 옵션은 `notes` 에). CI 에서는 `run ... --only stream_assembly,roundtrip` 처럼 줄여 돌리고 종료 코드 1 을 실패로 취급하면 됩니다. 중간에 끊겼다면 같은 `--out` 으로 `--resume`.
@@ -209,11 +223,11 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## 자주 겪는 문제
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| `error: cannot connect to ... Connection refused` 와 종료 코드 2 | 서버가 안 떠 있거나 주소·포트가 틀림 | 서버 실행 확인, `--base-url` 이 `/v1` 까지 포함하는지 확인 |
-| stderr 의 `skipping target <이름>: ...`, `--targets` 표의 `ERR` 행 | 그 대상이 실행 중이 아니거나 `api_key_env` 환경변수가 없음(나머지는 검사됨, 종료 코드 1) | 서버를 켜거나 변수를 export 한 뒤 같은 `--out` 으로 `--resume`, 또는 블록 삭제 |
+| `error: cannot connect to ... Connection refused`(한국어 화면은 `오류: ...`)와 종료 코드 2 | 서버가 안 떠 있거나 주소·포트가 틀림 | 서버 실행 확인, `--base-url` 이 `/v1` 까지 포함하는지 확인 |
+| stderr 의 `대상 건너뜀 <이름>: ...`(영어 화면은 `skipping target ...`), `--targets` 표의 `ERR` 행 | 그 대상이 실행 중이 아니거나 `api_key_env` 환경변수가 없음(나머지는 검사됨, 종료 코드 1) | 서버를 켜거나 변수를 export 한 뒤 같은 `--out` 으로 `--resume`, 또는 블록 삭제 |
 | 모든 검사가 느리거나 `ERROR`(타임아웃) | 첫 모델 로드 지연, 공유 GPU | `--timeout 300`, `--only` 로 줄이기, 중간에 끊겼다면 `--resume`(같은 `--out` 이면 `ERROR` 만 다시 실행) |
-| `error: --only has no check ids` 와 종료 코드 2 | `--only` 값이 비었음(CI 변수 치환이 비었거나 쉼표만 남음) | 변수 값 확인. 전체를 돌리려면 `--only` 를 빼기 |
-| `error: unknown check id(s): ...` 와 종료 코드 2 | `--only` 에 없는 검사 이름이 섞임(오타. 유효한 이름과 함께여도 마찬가지) | `toolcall-conformance list` 로 이름 확인 |
+| `error: --only has no check ids`(한국어 화면은 `오류: ...`)와 종료 코드 2 | `--only` 값이 비었음(CI 변수 치환이 비었거나 쉼표만 남음) | 변수 값 확인. 전체를 돌리려면 `--only` 를 빼기 |
+| `error: unknown check id(s): ...`(한국어 화면은 `오류: ...`)와 종료 코드 2 | `--only` 에 없는 검사 이름이 섞임(오타. 유효한 이름과 함께여도 마찬가지) | `toolcall-conformance list` 로 이름 확인 |
 | `leak` 만 FAIL | 서버 파서 설정 누락(llama-server `--jinja`, vLLM 도구 파서 옵션) | 서버 옵션 확인 후 재실행 |
 | `none` 이 FAIL | 서버가 `tool_choice` 를 구현하지 않음(Ollama 문서에도 미지원으로 표기) | 서버 한계로 받아들이거나 서버 교체 |
 | `para` 가 WARN | 모델·서버 기본값이 한 번에 하나씩 호출 | 정상 범위. 병렬이 꼭 필요하면 모델 교체 |
@@ -224,7 +238,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## 개발·기여
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 84 passed, 키·네트워크 불필요
+uv run pytest -q    # 107 passed, 키·네트워크 불필요
 ```
 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
 

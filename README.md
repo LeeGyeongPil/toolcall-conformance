@@ -27,7 +27,7 @@ uvx --from git+https://github.com/LeeGyeongPil/toolcall-conformance toolcall-con
 uv tool install git+https://github.com/LeeGyeongPil/toolcall-conformance
 toolcall-conformance --version
 ```
-After the PyPI release, `uvx toolcall-conformance demo` will also work. As of this writing, we confirmed that pointing at the repo source by local path, `uvx --from <path> toolcall-conformance --version` prints `toolcall-conformance 0.2.0`. No separate system packages are needed (the standard library plus the official `openai` SDK, just one).
+After the PyPI release, `uvx toolcall-conformance demo` will also work. As of this writing, we confirmed that pointing at the repo source by local path, `uvx --from <path> toolcall-conformance --version` prints `toolcall-conformance 0.3.0`. No separate system packages are needed (the standard library plus the official `openai` SDK, just one).
 
 To use it from a clone of the repo:
 ```bash
@@ -41,7 +41,7 @@ uv run toolcall-conformance demo
 ```
 Output (it takes a few seconds. This is an excerpt of the table part of a real run; below the table, a detailed list of non-PASS results and a `Summary` line follow):
 ```
-[mock] Practice results from the built-in mock server - not results from a real server. (연습용 목(mock) 서버 결과입니다 - 실제 서버 결과가 아닙니다)
+[mock] Practice results from the built-in mock server - not results from a real server.
 target               basic  leak  args  stream  done  sdk   none  req   named  para  trip
 -----------------------------------------------------------------------------------------
 good                 PASS   PASS  PASS  PASS    PASS  PASS  PASS  PASS  PASS   PASS  PASS
@@ -74,8 +74,22 @@ How to read it:
 | `--api-key-env name` | The **name of the environment variable** holding the API key | `--api-key-env TOOLCALL_API_KEY` |
 | `mock [--port N]` | Keep a mock server running (end with Ctrl-C) | `mock --port 8089` |
 | `list` | Describes the checks and mock modes | `toolcall-conformance list` |
+| `--lang en\|ko` | Screen language (see "Output language") | `--lang ko demo` |
 
 Exit codes: `0` all checks pass (no FAIL or ERROR), `1` there is a FAIL or ERROR, `2` usage error, server connection refused, or address resolution (DNS) failure (a drop after connecting or a timeout is recorded as `ERROR`, giving exit code 1). With `--targets`, a target that cannot be reached or whose `api_key_env` variable is unset is skipped: its row shows `ERR` in every column, the reason is listed under the details, `skipping target <name>: ...` goes to stderr, the other targets are still checked and the exit code is 1. Exit code 2 only when every target was skipped. With `--resume`, results already recorded in `--out` (PASS and so on) are kept even for a skipped target; only the checks with no record become `ERROR`. A single `--base-url` run is unchanged (refused connection is exit code 2). (`demo` uses only the `good` mode for its verdict.)
+
+### Output language
+Help, errors, progress lines and the text/Markdown report labels come in English or Korean. The language is picked in this order:
+1. `--lang en|ko` (before or after the subcommand)
+2. the `TOOLCALL_CONFORMANCE_LANG` environment variable (`en` or `ko`)
+3. `LC_ALL`, `LC_MESSAGES`, then `LANG`: a value starting with `ko` (for example `ko_KR.UTF-8`) selects Korean, anything else English.
+```bash
+uv run toolcall-conformance --lang ko demo
+TOOLCALL_CONFORMANCE_LANG=ko uv run toolcall-conformance list
+```
+The Korean screen of the same `demo` table is in [README.ko.md](README.ko.md) (the banner, the `대상` (target) header and the footer lines are Korean).
+
+What does not change with the language: `--format json` output, the JSONL evidence file, the per-check `reason` text (evidence data, always English), check ids, the `PASS/WARN/FAIL/SKIP/ERR` grades and exit codes. Note that on a machine with a Korean locale the text output is Korean by default; add `--lang en` to keep English (for example in scripts that match the output text).
 
 ### Scenario 1: Check your Ollama
 ```bash
@@ -224,7 +238,7 @@ am-i-openai-compatible: https://github.com/heiervang-technologies/am-i-openai-co
 ## Development and contributing
 ```bash
 git clone https://github.com/LeeGyeongPil/toolcall-conformance && cd toolcall-conformance
-uv run pytest -q    # 84 passed, no key or network needed
+uv run pytest -q    # 107 passed, no key or network needed
 ```
 Please leave bugs and suggestions as issues. The change log is [CHANGELOG.md](CHANGELOG.md).
 
